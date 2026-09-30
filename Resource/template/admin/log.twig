@@ -1,0 +1,56 @@
+{% extends '@admin/default_frame.twig' %}
+
+{% set menus = ['setting', 'blastengine_mailer_log'] %}
+
+{% block title %}blastengine送信ログ{% endblock %}
+{% block sub_title %}設定{% endblock %}
+
+{% block main %}
+    <div class="c-contentsArea__cols">
+        <div class="c-contentsArea__primaryCol">
+            <div class="c-primaryCol">
+                <div class="card rounded border-0 mb-4">
+                    <div class="card-header">
+                        <span>送信ログ{% if orderId %}（注文 ID {{ orderId }}）{% else %}（最新 50 件）{% endif %}</span>
+                        <span class="text-muted small ms-3">現在の接続方式: {{ Config.mode }}</span>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if logs is empty %}
+                            <p class="text-muted p-3 mb-0">まだ送信ログはありません。接続方式を「SMTP リレー」または「API」にすると、通知メールの送信ごとに記録されます。</p>
+                        {% else %}
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                <tr><th>日時</th><th>経路</th><th>結果</th><th>宛先</th><th>件名</th><th>種類</th><th>注文</th><th>配信 ID</th><th>blastengine 側の結果</th><th></th></tr>
+                                </thead>
+                                <tbody>
+                                {% for log in logs %}
+                                    <tr class="{{ log.status == 'failed' ? 'table-danger' : (log.status == 'fallback' ? 'table-warning' : '') }}">
+                                        <td class="text-nowrap">{{ log.createDate|date('Y/m/d H:i:s') }}</td>
+                                        <td>{{ log.mode }}</td>
+                                        <td>{{ log.status }}{% if log.error %} <span class="text-muted small" title="{{ log.error }}">(!)</span>{% endif %}</td>
+                                        <td>{{ log.toEmail }}</td>
+                                        <td>{{ log.subject }}</td>
+                                        <td class="small text-muted">{{ log.mailKind }}</td>
+                                        <td>{% if log.orderId %}<a href="{{ url('admin_order_edit', {'id': log.orderId}) }}">{{ log.orderId }}</a>{% endif %}</td>
+                                        <td>{{ log.deliveryId }}</td>
+                                        <td class="small">{{ log.deliveryStatus }}</td>
+                                        <td class="text-nowrap">
+                                            {% if log.deliveryId %}
+                                                <form method="post" action="{{ url('blastengine_mailer_admin_log_refresh', {'id': log.id}) }}" class="d-inline">
+                                                    <input type="hidden" name="{{ constant('Eccube\\Common\\Constant::TOKEN_NAME') }}" value="{{ csrf_token(constant('Eccube\\Common\\Constant::TOKEN_NAME')) }}">
+                                                    <button type="submit" class="btn btn-ec-regular btn-sm">結果を照会</button>
+                                                </form>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                </div>
+                <a class="c-baseLink" href="{{ url('blastengine_mailer_admin_config') }}"><i class="fa fa-backward" aria-hidden="true"></i><span>blastengine連携設定</span></a>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,10 @@
+services:
+  # EC-CUBE の送信経路を包む。Mailer が実際に使うのは mailer.transports（mailer.default_transport ではない）。
+  # 「使わない」設定のときは元の Transport にそのまま渡すので、無効化せずとも副作用は無い。
+  # 明示定義すると自動配線が切れるので autowire を付け、$inner だけを元の Transport に固定する。
+  Plugin\BlastengineMailer\Service\BlastengineTransport:
+    autowire: true
+    autoconfigure: true
+    decorates: mailer.transports
+    arguments:
+      $inner: '@.inner'

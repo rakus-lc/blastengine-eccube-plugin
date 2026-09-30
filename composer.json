@@ -1,0 +1,13 @@
+{
+  "name": "rakus-lc/blastengine-eccube-plugin",
+  "version": "1.0.0",
+  "description": "blastengine連携: EC-CUBEの通知メールをblastengine（SMTPリレーまたはAPI）で送り、配信結果を管理画面で確認する",
+  "type": "eccube-plugin",
+  "license": "MIT",
+  "require": {
+    "ec-cube/plugin-installer": "~0.0.7 || ^2.0"
+  },
+  "extra": {
+    "code": "BlastengineMailer"
+  }
+}

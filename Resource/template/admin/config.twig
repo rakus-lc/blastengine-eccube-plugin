@@ -1,0 +1,125 @@
+{% extends '@admin/default_frame.twig' %}
+
+{% set menus = ['setting', 'blastengine_mailer'] %}
+
+{% block title %}blastengine連携設定{% endblock %}
+{% block sub_title %}設定{% endblock %}
+
+{% form_theme form '@admin/Form/bootstrap_4_horizontal_layout.html.twig' %}
+
+{% block javascript %}
+<script>
+  // 接続方式に応じて入力欄を出し分ける
+  function bemToggle() {
+    var mode = document.querySelector('input[name="config[mode]"]:checked');
+    mode = mode ? mode.value : 'none';
+    document.getElementById('bem-smtp').hidden = mode !== 'smtp';
+    document.getElementById('bem-api').hidden = mode !== 'api';
+    document.getElementById('bem-common').hidden = mode === 'none';
+  }
+  document.querySelectorAll('input[name="config[mode]"]').forEach(function (el) { el.addEventListener('change', bemToggle); });
+  bemToggle();
+</script>
+{% endblock %}
+
+{% block main %}
+    <form role="form" method="post">
+        {{ form_widget(form._token) }}
+        <input type="hidden" name="{{ constant('Eccube\\Common\\Constant::TOKEN_NAME') }}" value="{{ csrf_token(constant('Eccube\\Common\\Constant::TOKEN_NAME')) }}">
+
+        <div class="c-contentsArea__cols">
+            <div class="c-contentsArea__primaryCol">
+                <div class="c-primaryCol">
+
+                    <div class="card rounded border-0 mb-4">
+                        <div class="card-header"><span>接続方式</span></div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                EC-CUBE が送る通知メール（注文受付・会員登録・パスワード再設定・出荷通知など 9 種類）の送信経路を切り替えます。
+                                管理画面だけで完結し、<code>.env</code> の <code>MAILER_DSN</code> は変更しません。
+                            </p>
+                            {{ form_widget(form.mode) }}{{ form_errors(form.mode) }}
+                            <small class="text-muted d-block mt-2">「使わない」のときの送信経路: <code>{{ currentDsnInfo }}</code></small>
+                            {% if secretWeak %}
+                                <div class="alert alert-warning py-2 mt-3 mb-0">
+                                    <code>ECCUBE_AUTH_MAGIC</code> が既定値または短すぎます。パスワード・API キーの暗号化鍵が推測可能になるため、.env で十分に長いランダムな値を設定してください。
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card rounded border-0 mb-4" id="bem-smtp">
+                        <div class="card-header"><span>SMTP リレーの設定</span></div>
+                        <div class="card-body">
+                            <p class="text-muted small">blastengine 管理画面「SMTP リレー」で発行したユーザー名・パスワードを入れます。パスワードはサーバー側の鍵で暗号化して保存します。</p>
+                            <div class="row mb-2"><div class="col-3">ホスト</div><div class="col">{{ form_widget(form.smtpHost) }}{{ form_errors(form.smtpHost) }}</div></div>
+                            <div class="row mb-2"><div class="col-3">ポート</div><div class="col">{{ form_widget(form.smtpPort) }}{{ form_errors(form.smtpPort) }}<small class="text-muted">通常 587（STARTTLS）</small></div></div>
+                            <div class="row mb-2"><div class="col-3">ユーザー名</div><div class="col">{{ form_widget(form.smtpUsername) }}{{ form_errors(form.smtpUsername) }}</div></div>
+                            <div class="row mb-2"><div class="col-3">パスワード</div><div class="col">{{ form_widget(form.smtpPassword, {'attr': {'autocomplete': 'new-password', 'placeholder': Config.smtpPassword ? '（設定済み。変更する場合のみ入力）' : ''}}) }}{{ form_errors(form.smtpPassword) }}</div></div>
+                            <div class="row"><div class="col-3">暗号化</div><div class="col">{{ form_widget(form.smtpEncryption) }}{{ form_errors(form.smtpEncryption) }}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="card rounded border-0 mb-4" id="bem-api">
+                        <div class="card-header"><span>API の設定</span></div>
+                        <div class="card-body">
+                            <p class="text-muted small">blastengine 管理画面で確認できるログイン ID と API キーを入れます。API キーはサーバー側の鍵で暗号化して保存します。API 方式では配信ごとの ID が送信ログに残り、配信結果を照会できます。</p>
+                            <div class="row mb-2"><div class="col-3">API ベース URL</div><div class="col">{{ form_widget(form.apiBaseUrl) }}{{ form_errors(form.apiBaseUrl) }}</div></div>
+                            <div class="row mb-2"><div class="col-3">ログイン ID</div><div class="col">{{ form_widget(form.apiLoginId) }}{{ form_errors(form.apiLoginId) }}</div></div>
+                            <div class="row"><div class="col-3">API キー</div><div class="col">{{ form_widget(form.apiKey, {'attr': {'autocomplete': 'new-password', 'placeholder': Config.apiKey ? '（設定済み。変更する場合のみ入力）' : ''}}) }}{{ form_errors(form.apiKey) }}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="card rounded border-0 mb-4" id="bem-common">
+                        <div class="card-header"><span>送信の扱い</span></div>
+                        <div class="card-body">
+                            <div class="form-check mb-2">{{ form_widget(form.fallbackOnError, {'label': 'blastengine への送信に失敗したら、元の送信経路（MAILER_DSN）で送る'}) }}</div>
+                            <small class="text-muted d-block mb-3">通知メールは届かないと事故になるため既定で有効です。退避した送信は送信ログに「fallback」として残ります。</small>
+                            <div class="form-check">{{ form_widget(form.logEnabled, {'label': '送信ログを残す（宛先・件名・注文 ID・配信 ID）'}) }}</div>
+                            <div class="alert alert-info py-2 mt-3 mb-0 small">
+                                送信元（From）は店舗設定のメールアドレス <code>{{ shopEmail }}</code> です。blastengine 側でこのドメインの認証（SPF/DKIM）を済ませてください。認証していないドメインからは送れない、または迷惑メール判定されます。
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card rounded border-0 mb-4" id="bem-bounce">
+                        <div class="card-header"><span>エラー停止連携（宛先不明の共有）</span></div>
+                        <div class="card-body">
+                            <p class="text-muted small">
+                                宛先不明でエラー停止になったアドレスを会員の「宛先状態」として持ち、通知メールと販促メール（blastmail 連携）の両方で送らないようにします。
+                                受信可否（オプトイン／アウト）とは別の項目です。会員がメールアドレスを変えると自動で解除されます。
+                            </p>
+                            <div class="form-check mb-2">{{ form_widget(form.bounceSyncEnabled, {'label': 'エラー停止連携を使う（blastengine のエラー停止一覧を会員に反映する）'}) }}</div>
+                            <div class="form-check mb-2">{{ form_widget(form.bounceSuppressSend, {'label': '宛先不明の会員には通知メールを送らない（送信ログに suppressed として残す）'}) }}</div>
+                            <small class="text-muted d-block">
+                                取得には API のログイン ID・API キーが必要です（接続方式が SMTP リレーでも使えます）。定期取得は <code>bin/console blastengine:bounce-sync</code>。
+                                一覧と手動解除は <a href="{{ url('blastengine_mailer_admin_bounce') }}">宛先不明の会員</a>。
+                                {% if Config.bounceLastFetchAt %}最終取得: {{ Config.bounceLastFetchAt|date('Y/m/d H:i') }}{% endif %}
+                            </small>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="c-conversionArea">
+            <div class="c-conversionArea__container">
+                <div class="row justify-content-between align-items-center">
+                    <div class="col-6">
+                        <div class="c-conversionArea__leftBlockItem">
+                            <a class="c-baseLink" href="{{ url('blastengine_mailer_admin_log') }}"><i class="fa fa-list" aria-hidden="true"></i><span>送信ログ</span></a>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="row align-items-center justify-content-end">
+                            <div class="col-auto"><button class="btn btn-ec-regular" type="submit" name="test_connection" value="1">保存して接続テスト</button></div>
+                            <div class="col-auto"><button class="btn btn-ec-regular" type="submit" name="test_mail" value="1">保存してテスト送信</button></div>
+                            <div class="col-auto"><button class="btn btn-ec-conversion px-5" type="submit">登録</button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+{% endblock %}

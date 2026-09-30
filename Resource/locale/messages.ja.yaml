@@ -1,0 +1,3 @@
+blastengine_mailer.admin.nav.config: blastengine連携設定
+blastengine_mailer.admin.nav.log: blastengine送信ログ
+blastengine_mailer.admin.nav.bounce: 宛先不明（エラー停止）の会員

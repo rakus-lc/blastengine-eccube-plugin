@@ -1,0 +1,67 @@
+{% extends '@admin/default_frame.twig' %}
+
+{% set menus = ['setting', 'blastengine_mailer_bounce'] %}
+
+{% block title %}宛先不明（エラー停止）の会員{% endblock %}
+{% block sub_title %}設定{% endblock %}
+
+{% block main %}
+    <div class="c-contentsArea__cols">
+        <div class="c-contentsArea__primaryCol">
+            <div class="c-primaryCol">
+                <div class="card rounded border-0 mb-4">
+                    <div class="card-header">
+                        <span>宛先不明（エラー停止）の会員 <span class="badge bg-secondary">{{ count }}</span></span>
+                        <span class="text-muted small ms-3">エラー停止連携: {{ Config.bounceSyncEnabled ? '有効' : '無効' }}{% if Config.bounceLastFetchAt %} / 最終取得 {{ Config.bounceLastFetchAt|date('Y/m/d H:i') }}{% endif %}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">
+                            blastengine のエラー停止一覧（宛先不明で配信が止まったアドレス）と、blastmail 側のエラー停止（blastmail 連携プラグインの同期時に取り込み）を、会員の「宛先状態」として持ちます。
+                            宛先不明の会員には通知メールを送らず、送信ログに <code>suppressed</code> として残します。blastmail へは受信可否に関係なく「エラー停止」として送ります。
+                            会員がメールアドレスを変えると判定は自動で無効になります。
+                        </p>
+                        {% if not supported %}
+                            <div class="alert alert-warning py-2 mb-0">会員テーブルに宛先状態の列がありません。プラグインを更新（スキーマ更新）してください。</div>
+                        {% else %}
+                            <form method="post" action="{{ url('blastengine_mailer_admin_bounce_fetch') }}" class="d-inline">
+                                <input type="hidden" name="{{ constant('Eccube\\Common\\Constant::TOKEN_NAME') }}" value="{{ csrf_token(constant('Eccube\\Common\\Constant::TOKEN_NAME')) }}">
+                                <button type="submit" class="btn btn-ec-regular">blastengine のエラー停止を今すぐ取得</button>
+                            </form>
+                            <small class="text-muted ms-2">定期実行: <code>bin/console blastengine:bounce-sync</code>（API のログイン ID・API キーが必要。接続方式が SMTP でも使えます）</small>
+                        {% endif %}
+                    </div>
+                    {% if supported %}
+                    <div class="card-body p-0 border-top">
+                        {% if rows is empty %}
+                            <p class="text-muted p-3 mb-0">宛先不明の会員はいません。</p>
+                        {% else %}
+                            <table class="table table-sm mb-0">
+                                <thead><tr><th>会員</th><th>現在のメールアドレス</th><th>判定時のアドレス</th><th>判定日時</th><th>判定元</th><th>内容</th><th></th></tr></thead>
+                                <tbody>
+                                {% for r in rows %}
+                                    <tr class="{{ r.effective ? '' : 'text-muted' }}">
+                                        <td class="text-nowrap"><a href="{{ url('admin_customer_edit', {'id': r.id}) }}">{{ r.id }}</a> {{ r.name01 }} {{ r.name02 }}</td>
+                                        <td>{{ r.email }}</td>
+                                        <td>{{ r.mail_bounce_email }}{% if not r.effective %} <span class="badge bg-light text-muted">アドレス変更済み（無効）</span>{% endif %}</td>
+                                        <td class="text-nowrap">{{ r.mail_bounce_at ? r.mail_bounce_at|date('Y/m/d H:i') : '' }}</td>
+                                        <td>{{ r.mail_bounce_source }}</td>
+                                        <td class="small">{{ r.mail_bounce_message }}</td>
+                                        <td class="text-nowrap">
+                                            <form method="post" action="{{ url('blastengine_mailer_admin_bounce_clear', {'id': r.id}) }}" class="d-inline" onsubmit="return confirm('宛先状態を「有効」に戻します。よろしいですか？');">
+                                                <input type="hidden" name="{{ constant('Eccube\\Common\\Constant::TOKEN_NAME') }}" value="{{ csrf_token(constant('Eccube\\Common\\Constant::TOKEN_NAME')) }}">
+                                                <button type="submit" class="btn btn-ec-regular btn-sm">有効に戻す</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <a class="c-baseLink" href="{{ url('blastengine_mailer_admin_config') }}"><i class="fa fa-backward" aria-hidden="true"></i><span>blastengine連携設定</span></a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
